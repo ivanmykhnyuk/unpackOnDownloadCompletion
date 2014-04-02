@@ -14,3 +14,5 @@ hs_err_pid*
 #IDE's project files
 *.iml
 .idea
+
+!libs
