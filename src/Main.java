@@ -1,7 +1,6 @@
 import de.innosystec.unrar.Archive;
 import de.innosystec.unrar.exception.RarException;
 import de.innosystec.unrar.rarfile.FileHeader;
-import de.innosystec.unrar.unpack.ppm.RarNode;
 import name.pachler.nio.file.*;
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 import org.apache.commons.compress.archivers.sevenz.SevenZFile;
@@ -56,7 +55,6 @@ public class Main {
 
 
         Thread unpackingThread = new Thread() {
-
             @Override
             public void run() {
                 ArchiveFiles filter = new ArchiveFiles(new String[]{"zip", "tar", "7z", "rar"});
