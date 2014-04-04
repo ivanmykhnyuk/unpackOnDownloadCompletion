@@ -1,71 +1,56 @@
-import de.innosystec.unrar.Archive;
-import de.innosystec.unrar.exception.RarException;
-import de.innosystec.unrar.rarfile.FileHeader;
 import name.pachler.nio.file.*;
-import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
-import org.apache.commons.compress.archivers.sevenz.SevenZFile;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 public class Main {
-    private static String watchedDir;
-
-    private static boolean archiveFileDropped = false;
-
-    static Object monitor = new Object();
-
-    static byte[] buffer = new byte[1024];
-
-
     public static void main(String[] args) throws IOException {
+        unPackers = new HashMap<String, ArchiveUnpacker>();
+        monitor = new Object();
+        buffer = new byte[1024];
+
         WatchService watchService = FileSystems.getDefault().newWatchService();
 
-        watchedDir = "D:\\temp";
+        final String watchedDir = "D:\\temp";
+
 
         Path watchedDirPath = Paths.get(watchedDir);
         final WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKind.ENTRY_CREATE);
 
-
-        Thread pollingThread = new Thread() {
-            @Override
-            public void run() {
-                while (true) {
-                    List<name.pachler.nio.file.WatchEvent<?>> list = key.pollEvents();
-                    for (WatchEvent watchEvent : list) {
-                        archiveFileDropped = true;
-
-                        synchronized (monitor) {
-                            monitor.notify();
-                        }
-
-                        System.out.print("ololo, event....");
-
-                    }
-                }
-            }
-        };
-
-
         Thread unpackingThread = new Thread() {
             @Override
             public void run() {
-                ArchiveFiles filter = new ArchiveFiles(new String[]{"zip", "tar", "7z", "rar"});
+                String[] supportedArchiveFormats = new String[]{"zip", "tar", "7z", "rar", "gz"};
+                ArchiveFiles filter = new ArchiveFiles(supportedArchiveFormats);
+                File outputDir = new File(watchedDir);
 
                 while (true) {
                     if (archiveFileDropped) {
-                        File outputDir = new File(watchedDir);
-                        File[] list = outputDir.listFiles(filter);
-                        for (File l : list) {
-                            unRar(l);
+                        File[] files = outputDir.listFiles(filter);
+                        for (File file : files) {
+                            String fileExtention = file.getName();
+                            fileExtention = fileExtention.substring(fileExtention.lastIndexOf(".") + 1);
+
+                            //cash unpackers
+                            if (!unPackers.containsKey(fileExtention)) {
+                                if (fileExtention.equals("zip")) {
+                                    unPackers.put(fileExtention, new ZipUnpacker(watchedDir, buffer));
+                                } else if (fileExtention.equals("tar")) {
+                                    unPackers.put(fileExtention, new TarUnpacker(watchedDir, buffer));
+                                } else if (fileExtention.equals("7z")) {
+                                    unPackers.put(fileExtention, new SevenZipUnpacker(watchedDir, buffer));
+                                } else if (fileExtention.equals("rar")) {
+                                    unPackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
+                                } else if (fileExtention.equals("gz")) {
+                                    unPackers.put(fileExtention, new GZipUnpacker(watchedDir, buffer));
+                                }
+                            }
+
+                            unPackers.get(fileExtention).unpack(file);
                         }
+
                         archiveFileDropped = false;
 
                     } else {
@@ -80,133 +65,25 @@ public class Main {
                 }
             }
         };
-
-
         unpackingThread.start();
-        pollingThread.start();
-        try {
-            unpackingThread.join();
-            pollingThread.join();
-        } catch (InterruptedException e) {
 
-        }
-    }
+        while (true) {
+            List<name.pachler.nio.file.WatchEvent<?>> list = key.pollEvents();
+            for (WatchEvent watchEvent : list) {
+                archiveFileDropped = true;
 
-    public static void unZipIt(File zipArchive) {
-        try {
-            ZipInputStream zis = new ZipInputStream(new FileInputStream(zipArchive));
-
-            ZipEntry ze = null;
-            while ((ze = zis.getNextEntry()) != null) {
-                String fileName = ze.getName();
-                File newFile = new File(watchedDir + File.separator + fileName);
-                if (ze.isDirectory()) {
-                    newFile.mkdir();
-                } else {
-                    FileOutputStream fos = new FileOutputStream(newFile);
-
-                    int len;
-                    while ((len = zis.read(buffer)) > 0) {
-                        fos.write(buffer, 0, len);
-                    }
-                    fos.close();
+                synchronized (monitor) {
+                    monitor.notify();
                 }
             }
-
-            zis.closeEntry();
-            zis.close();
-
-            //remove file
-            zipArchive.delete();
-        } catch (IOException ex) {
-            ex.printStackTrace();
         }
     }
 
-    public static void unTar(File tarArchive) {
-        try {
-            TarArchiveInputStream inputStream = new TarArchiveInputStream(new FileInputStream(tarArchive));
+    private static boolean archiveFileDropped;
 
-            TarArchiveEntry entry = null;
-            while ((entry = (TarArchiveEntry) inputStream.getNextEntry()) != null) {
-                String fileName = entry.getName();
-                File newFile = new File(watchedDir + File.separator + fileName);
-                if (entry.isDirectory()) {
-                    newFile.mkdir();
-                } else {
-                    FileOutputStream fos = new FileOutputStream(newFile);
+    private static Object monitor;
 
-                    int len;
-                    while ((len = inputStream.read(buffer)) > 0) {
-                        fos.write(buffer, 0, len);
-                    }
-                    fos.close();
-                }
-            }
-            inputStream.close();
+    private static byte[] buffer;
 
-            //remove file
-            tarArchive.delete();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void unRar(File rarArchive) {
-        try {
-            Archive inputStream = new Archive(rarArchive);
-
-            FileHeader entry = null;
-            while ((entry = inputStream.nextFileHeader()) != null) {
-                String fileName = entry.getFileNameString().trim();
-                File newFile = new File(watchedDir + File.separator + fileName);
-                if (entry.isDirectory()) {
-                    newFile.mkdir();
-                } else {
-                    FileOutputStream fos = new FileOutputStream(newFile);
-                    inputStream.extractFile(entry, fos);
-                    fos.close();
-                }
-            }
-            inputStream.close();
-
-            //remove file
-            rarArchive.delete();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (RarException e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    //TODO: method throws exception
-    public static void un7Zip(File sevenZipArchive) {
-        try {
-            SevenZFile inputStream = new SevenZFile(sevenZipArchive);
-
-            SevenZArchiveEntry entry = null;
-            while ((entry = inputStream.getNextEntry()) != null) {
-                String fileName = entry.getName();
-                File newFile = new File(watchedDir + File.separator + fileName);
-                if (entry.isDirectory()) {
-                    newFile.mkdir();
-                } else {
-                    FileOutputStream fos = new FileOutputStream(newFile);
-
-                    int len;
-                    while ((len = inputStream.read(buffer)) > 0) {
-                        fos.write(buffer, 0, len);
-                    }
-                    fos.close();
-                }
-            }
-            inputStream.close();
-
-            //remove file
-            sevenZipArchive.delete();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+    private static HashMap<String, ArchiveUnpacker> unPackers;
 }
