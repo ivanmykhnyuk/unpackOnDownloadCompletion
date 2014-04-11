@@ -17,7 +17,7 @@ public class Main {
 
 
         Path watchedDirPath = Paths.get(watchedDir);
-         WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
+        WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
 
         Thread unpackingThread = new Thread() {
             @Override
@@ -45,7 +45,7 @@ public class Main {
                                     unPackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("gz")) {
                                     unPackers.put(fileExtention, new GZipUnpacker(watchedDir, buffer));
-                                }  else if (fileExtention.equals("bz2")) {
+                                } else if (fileExtention.equals("bz2")) {
                                     unPackers.put(fileExtention, new BZ2Unpacker(watchedDir, buffer));
                                 }
                             }
