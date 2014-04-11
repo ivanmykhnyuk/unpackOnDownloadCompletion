@@ -1,7 +1,7 @@
-import name.pachler.nio.file.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.*;
 import java.util.HashMap;
 import java.util.List;
 
@@ -17,7 +17,7 @@ public class Main {
 
 
         Path watchedDirPath = Paths.get(watchedDir);
-        final WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKind.ENTRY_CREATE);
+         WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE);
 
         Thread unpackingThread = new Thread() {
             @Override
@@ -70,13 +70,28 @@ public class Main {
         unpackingThread.start();
 
         while (true) {
-            List<name.pachler.nio.file.WatchEvent<?>> list = key.pollEvents();
+            try {
+                key = watchService.take();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            List<WatchEvent<?>> list = key.pollEvents();
             for (WatchEvent watchEvent : list) {
+                WatchEvent.Kind<?> kind = watchEvent.kind();
+                if (kind == StandardWatchEventKinds.OVERFLOW) {
+                    continue;
+                }
                 archiveFileDropped = true;
 
                 synchronized (monitor) {
                     monitor.notify();
                 }
+            }
+
+            boolean valid = key.reset();
+            if (!valid) {
+                System.exit(2);
             }
         }
     }
