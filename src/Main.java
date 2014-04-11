@@ -22,7 +22,7 @@ public class Main {
         Thread unpackingThread = new Thread() {
             @Override
             public void run() {
-                String[] supportedArchiveFormats = new String[]{"zip", "tar", "7z", "rar", "gz"};
+                String[] supportedArchiveFormats = new String[]{"zip", "tar", "7z", "rar", "gz", "bz2"};
                 ArchiveFiles filter = new ArchiveFiles(supportedArchiveFormats);
                 File outputDir = new File(watchedDir);
 
@@ -45,6 +45,8 @@ public class Main {
                                     unPackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("gz")) {
                                     unPackers.put(fileExtention, new GZipUnpacker(watchedDir, buffer));
+                                }  else if (fileExtention.equals("bz2")) {
+                                    unPackers.put(fileExtention, new BZ2Unpacker(watchedDir, buffer));
                                 }
                             }
 
