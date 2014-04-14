@@ -38,9 +38,6 @@ public class TarUnpacker implements ArchiveUnpacker {
                 }
             }
             inputStream.close();
-
-            //remove file
-            tarArchive.delete();
         } catch (IOException e) {
             e.printStackTrace();
         }

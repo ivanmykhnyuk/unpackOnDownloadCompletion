@@ -40,9 +40,6 @@ public class ZipUnpacker implements ArchiveUnpacker {
 
             zis.closeEntry();
             zis.close();
-
-            //remove file
-            zipArchive.delete();
         } catch (IOException ex) {
             ex.printStackTrace();
         }

@@ -29,9 +29,6 @@ public class GZipUnpacker implements ArchiveUnpacker {
 
             out.close();
             gzIn.close();
-
-            gzipArchive.delete();
-
         } catch (IOException e) {
             e.printStackTrace();
         }

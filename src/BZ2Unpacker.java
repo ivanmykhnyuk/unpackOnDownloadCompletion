@@ -31,9 +31,6 @@ public class BZ2Unpacker implements ArchiveUnpacker {
 
             out.close();
             gzIn.close();
-
-            gzipArchive.delete();
-
         } catch (IOException e) {
             e.printStackTrace();
         }

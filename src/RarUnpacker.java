@@ -35,9 +35,6 @@ public class RarUnpacker implements ArchiveUnpacker {
                 }
             }
             inputStream.close();
-
-            //remove file
-            rarArchive.delete();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (RarException e) {

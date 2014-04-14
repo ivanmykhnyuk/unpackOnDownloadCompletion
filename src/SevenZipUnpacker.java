@@ -37,9 +37,6 @@ public class SevenZipUnpacker implements ArchiveUnpacker {
                 }
             }
             inputStream.close();
-
-            //remove file
-            sevenZipArchive.delete();
         } catch (IOException e) {
             e.printStackTrace();
         }
