@@ -7,9 +7,10 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+//TODO create dir if archive is content is not in dir
 public class Main {
     public static void main(String[] args) throws IOException {
-        unPackers = new HashMap<String, ArchiveUnpacker>();
+        unpackers = new HashMap<String, ArchiveUnpacker>();
         monitor = new Object();
         buffer = new byte[1024];
         toBeUnpackedFiles = new HashMap<Path, TimerTask>(4);
@@ -33,28 +34,29 @@ public class Main {
                 while (true) {
                     if (archiveFileDropped) {
                         File[] files = outputDir.listFiles(filter);
+                        //TODO traverse toBeUnpackedFiles instead
                         for (File file : files) {
                             String fileExtention = file.getName();
                             fileExtention = fileExtention.substring(fileExtention.lastIndexOf(".") + 1);
 
                             //cash unpackers
-                            if (!unPackers.containsKey(fileExtention)) {
+                            if (!unpackers.containsKey(fileExtention)) {
                                 if (fileExtention.equals("zip")) {
-                                    unPackers.put(fileExtention, new ZipUnpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new ZipUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("tar")) {
-                                    unPackers.put(fileExtention, new TarUnpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new TarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("7z")) {
-                                    unPackers.put(fileExtention, new SevenZipUnpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new SevenZipUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("rar")) {
-                                    unPackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("gz")) {
-                                    unPackers.put(fileExtention, new GZipUnpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new GZipUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("bz2")) {
-                                    unPackers.put(fileExtention, new BZ2Unpacker(watchedDir, buffer));
+                                    unpackers.put(fileExtention, new BZ2Unpacker(watchedDir, buffer));
                                 }
                             }
 
-                            unPackers.get(fileExtention).unpack(file);
+                            unpackers.get(fileExtention).unpack(file);
                             toBeUnpackedFiles.remove(file.toPath());
                             file.delete();
                         }
@@ -129,7 +131,7 @@ public class Main {
 
     private static byte[] buffer;
 
-    private static HashMap<String, ArchiveUnpacker> unPackers;
+    private static HashMap<String, ArchiveUnpacker> unpackers;
 
     private static HashMap<Path, TimerTask> toBeUnpackedFiles;
 
