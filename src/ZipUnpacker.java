@@ -21,7 +21,7 @@ public class ZipUnpacker implements ArchiveUnpacker {
         try {
             ZipInputStream zis = new ZipInputStream(new FileInputStream(zipArchive));
 
-            ZipEntry ze = null;
+            ZipEntry ze;
             while ((ze = zis.getNextEntry()) != null) {
                 String fileName = ze.getName();
                 File newFile = new File(outputDir + File.separator + fileName);

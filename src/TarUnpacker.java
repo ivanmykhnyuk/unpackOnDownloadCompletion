@@ -21,7 +21,7 @@ public class TarUnpacker implements ArchiveUnpacker {
         try {
             TarArchiveInputStream inputStream = new TarArchiveInputStream(new FileInputStream(tarArchive));
 
-            TarArchiveEntry entry = null;
+            TarArchiveEntry entry;
             while ((entry = (TarArchiveEntry) inputStream.getNextEntry()) != null) {
                 String fileName = entry.getName();
                 File newFile = new File(outputDir + File.separator + fileName);

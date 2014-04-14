@@ -19,7 +19,7 @@ public class Main {
         WatchService watchService = FileSystems.getDefault().newWatchService();
 
         final String watchedDir = "D:\\temp";
-        final String[] supportedArchiveFormats = new String[]{"zip", "tar", "7z", "rar", "gz", "bz2"};
+        final String[] supportedArchiveFormats = new String[]{"zip", "tar", "7z", "xz", "rar", "gz", "bz2"};
 
 
         Path watchedDirPath = Paths.get(watchedDir);
@@ -47,6 +47,8 @@ public class Main {
                                     unpackers.put(fileExtention, new TarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("7z")) {
                                     unpackers.put(fileExtention, new SevenZipUnpacker(watchedDir, buffer));
+                                } else if (fileExtention.equals("xz")) {
+                                    unpackers.put(fileExtention, new XZUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("rar")) {
                                     unpackers.put(fileExtention, new RarUnpacker(watchedDir, buffer));
                                 } else if (fileExtention.equals("gz")) {
