@@ -13,7 +13,7 @@ public class Main {
         unpackers = new HashMap<String, ArchiveUnpacker>();
         monitor = new Object();
         buffer = new byte[1024];
-        toBeUnpackedFiles = new HashMap<Path, TimerTask>(4);
+        toBeUnpackedFiles = new HashMap<String, TimerTask>(4);
         modificationEventTimer = new Timer();
 
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -28,16 +28,10 @@ public class Main {
         Thread unpackingThread = new Thread() {
             @Override
             public void run() {
-                ArchiveFiles filter = new ArchiveFiles(supportedArchiveFormats);
-                File outputDir = new File(watchedDir);
-
                 while (true) {
                     if (archiveFileDropped) {
-                        File[] files = outputDir.listFiles(filter);
-                        //TODO traverse toBeUnpackedFiles instead
-                        for (File file : files) {
-                            String fileExtention = file.getName();
-                            fileExtention = fileExtention.substring(fileExtention.lastIndexOf(".") + 1);
+                        for (String path : toBeUnpackedFiles.keySet()) {
+                            String fileExtention = path.substring(path.lastIndexOf(".") + 1);
 
                             //cash unpackers
                             if (!unpackers.containsKey(fileExtention)) {
@@ -58,8 +52,9 @@ public class Main {
                                 }
                             }
 
+                            File file = new File(path);
                             unpackers.get(fileExtention).unpack(file);
-                            toBeUnpackedFiles.remove(file.toPath());
+                            toBeUnpackedFiles.remove(path);
                             file.delete();
                         }
 
@@ -89,7 +84,7 @@ public class Main {
             List<WatchEvent<?>> list = key.pollEvents();
             for (WatchEvent watchEvent : list) {
                 Path path = (Path) watchEvent.context();
-                String fileName = path.toString();
+                String fileName = watchedDir + File.separator + path.toString();
                 int i;
                 for (i = 0; i < supportedArchiveFormats.length; ++i) {
                     if (fileName.endsWith(supportedArchiveFormats[i])) {
@@ -102,11 +97,11 @@ public class Main {
                     if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
                         archiveFileDropped = true;
                     } else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
-                        if (toBeUnpackedFiles.containsKey(path)) {
-                            toBeUnpackedFiles.get(path).cancel();
+                        if (toBeUnpackedFiles.containsKey(fileName)) {
+                            toBeUnpackedFiles.get(fileName).cancel();
                         }
 
-                        toBeUnpackedFiles.put(path, new TimerTask() {
+                        toBeUnpackedFiles.put(fileName, new TimerTask() {
                             @Override
                             public void run() {
                                 synchronized (monitor) {
@@ -115,14 +110,14 @@ public class Main {
                             }
                         });
 
-                        modificationEventTimer.schedule(toBeUnpackedFiles.get(path), 1024);
+                        modificationEventTimer.schedule(toBeUnpackedFiles.get(fileName), 1024);
                     }
                 }
             }
 
             boolean valid = key.reset();
             if (!valid) {
-                System.exit(2);
+               throw new IllegalStateException("Cannot reset poll key.");
             }
         }
     }
@@ -135,7 +130,7 @@ public class Main {
 
     private static HashMap<String, ArchiveUnpacker> unpackers;
 
-    private static HashMap<Path, TimerTask> toBeUnpackedFiles;
+    private static HashMap<String, TimerTask> toBeUnpackedFiles;
 
     private static Timer modificationEventTimer;
 }
