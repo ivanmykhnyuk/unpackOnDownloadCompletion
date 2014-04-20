@@ -20,7 +20,7 @@ public class SevenZipUnpacker implements ArchiveUnpacker {
         try {
             SevenZFile inputStream = new SevenZFile(sevenZipArchive);
 
-            SevenZArchiveEntry entry = null;
+            SevenZArchiveEntry entry;
             while ((entry = inputStream.getNextEntry()) != null) {
                 String fileName = entry.getName();
                 File newFile = new File(outputDir + File.separator + fileName);

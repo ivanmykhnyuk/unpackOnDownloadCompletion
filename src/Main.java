@@ -2,18 +2,16 @@
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 //TODO create dir if archive is content is not in dir
+//todo 2 events bug
 public class Main {
     public static void main(String[] args) throws IOException {
         unpackers = new HashMap<String, ArchiveUnpacker>();
         monitor = new Object();
         buffer = new byte[1024];
-        toBeUnpackedFiles = new HashMap<String, TimerTask>(4);
+        readyToUnpackFiles = new ArrayList<String>(2);
         modificationEventTimer = new Timer();
 
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -23,14 +21,16 @@ public class Main {
 
 
         Path watchedDirPath = Paths.get(watchedDir);
-        WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY);
+        WatchKey key = watchedDirPath.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
 
         Thread unpackingThread = new Thread() {
             @Override
             public void run() {
                 while (true) {
-                    if (archiveFileDropped) {
-                        for (String path : toBeUnpackedFiles.keySet()) {
+                    if (!readyToUnpackFiles.isEmpty()) {
+                        Iterator<String> it = readyToUnpackFiles.iterator();
+                        while (it.hasNext()) {
+                            String path = it.next();
                             String fileExtention = path.substring(path.lastIndexOf(".") + 1);
 
                             //cash unpackers
@@ -54,11 +54,9 @@ public class Main {
 
                             File file = new File(path);
                             unpackers.get(fileExtention).unpack(file);
-                            toBeUnpackedFiles.remove(path);
                             file.delete();
+                            it.remove();
                         }
-
-                        archiveFileDropped = false;
 
                     } else {
                         try {
@@ -74,6 +72,9 @@ public class Main {
         };
         unpackingThread.start();
 
+
+        final HashMap<String, TimerTask> toBeUnpackedFiles = new HashMap<String, TimerTask>(4);
+
         while (true) {
             try {
                 key = watchService.take();
@@ -84,7 +85,7 @@ public class Main {
             List<WatchEvent<?>> list = key.pollEvents();
             for (WatchEvent watchEvent : list) {
                 Path path = (Path) watchEvent.context();
-                String fileName = watchedDir + File.separator + path.toString();
+                final String fileName = watchedDir + File.separator + path.toString();
                 int i;
                 for (i = 0; i < supportedArchiveFormats.length; ++i) {
                     if (fileName.endsWith(supportedArchiveFormats[i])) {
@@ -94,9 +95,7 @@ public class Main {
 
                 if (i != supportedArchiveFormats.length) {
                     WatchEvent.Kind<?> kind = watchEvent.kind();
-                    if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
-                        archiveFileDropped = true;
-                    } else if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
+                    if (kind == StandardWatchEventKinds.ENTRY_MODIFY) {
                         if (toBeUnpackedFiles.containsKey(fileName)) {
                             toBeUnpackedFiles.get(fileName).cancel();
                         }
@@ -105,24 +104,24 @@ public class Main {
                             @Override
                             public void run() {
                                 synchronized (monitor) {
+                                    toBeUnpackedFiles.remove(fileName);
+                                    readyToUnpackFiles.add(fileName);
                                     monitor.notify();
                                 }
                             }
                         });
 
-                        modificationEventTimer.schedule(toBeUnpackedFiles.get(fileName), 1024);
+                        modificationEventTimer.schedule(toBeUnpackedFiles.get(fileName), 2048);
                     }
                 }
             }
 
             boolean valid = key.reset();
             if (!valid) {
-               throw new IllegalStateException("Cannot reset poll key.");
+                throw new IllegalStateException("Cannot reset poll key.");
             }
         }
     }
-
-    private static boolean archiveFileDropped;
 
     private static Object monitor;
 
@@ -130,7 +129,7 @@ public class Main {
 
     private static HashMap<String, ArchiveUnpacker> unpackers;
 
-    private static HashMap<String, TimerTask> toBeUnpackedFiles;
-
     private static Timer modificationEventTimer;
+
+    private static ArrayList<String> readyToUnpackFiles;
 }
